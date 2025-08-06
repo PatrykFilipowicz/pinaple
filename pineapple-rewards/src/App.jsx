@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Award, Users, TrendingUp } from 'lucide-react';
+import { Plus, Award, Users, TrendingUp, Clock } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // Inicjalizacja Supabase
@@ -16,11 +16,37 @@ const PineappleRewardsApp = () => {
   const [rewardReason, setRewardReason] = useState('');
   const [showAddUser, setShowAddUser] = useState(false);
   const [showGiveReward, setShowGiveReward] = useState(false);
+  const [showUserHistory, setShowUserHistory] = useState(false);
+  const [selectedUserHistory, setSelectedUserHistory] = useState(null);
+  const [userRewards, setUserRewards] = useState([]);
 
   // Ustaw tytuł strony
   useEffect(() => {
     document.title = '🍍 Ananasowe Nagrody - System Motywacyjny';
   }, []);
+
+  // Pobierz historię nagród dla użytkownika
+  const fetchUserRewards = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('rewards')
+        .select('*')
+        .eq('user_id', userId)
+        .order('given_at', { ascending: false });
+
+      if (error) throw error;
+      setUserRewards(data || []);
+    } catch (error) {
+      console.error('Błąd podczas ładowania historii nagród:', error);
+    }
+  };
+
+  // Pokaż historię użytkownika
+  const showHistory = async (user) => {
+    setSelectedUserHistory(user);
+    await fetchUserRewards(user.id);
+    setShowUserHistory(true);
+  };
 
   // Ładuj użytkowników z Supabase
   const fetchUsers = async () => {
@@ -118,8 +144,8 @@ const PineappleRewardsApp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-100 to-purple-200 text-gray-800">
       {/* Header */}
-      <div className="container mx-auto px-6 py-8">
-        <div className="text-center mb-12">
+      <div className="container mx-auto px-6 py-4">
+        <div className="text-center mb-8 mt-4">
           <div className="text-6xl mb-4 animate-pulse">🍍</div>
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
             Ananasowe Nagrody
@@ -217,9 +243,20 @@ const PineappleRewardsApp = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-gray-700">{user.pineapples}</span>
-                    <span className="text-3xl">🍍</span>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => showHistory(user)}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-3 rounded-xl transition-all duration-200 flex items-center gap-2"
+                      title="Historia nagród"
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm font-medium">Historia</span>
+                    </button>
+                    
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-bold text-gray-700">{user.pineapples}</span>
+                      <span className="text-3xl">🍍</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -319,6 +356,66 @@ const PineappleRewardsApp = () => {
                 Daj Ananasa!
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* User History Modal */}
+      {showUserHistory && selectedUserHistory && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/50 max-h-[80vh] overflow-hidden">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Historia Nagród</h3>
+              <p className="text-gray-600">
+                <span className="font-semibold text-purple-600">{selectedUserHistory.pseudonym}</span>
+                <span className="mx-2">•</span>
+                <span>{selectedUserHistory.pineapples} 🍍</span>
+              </p>
+            </div>
+            
+            <div className="max-h-80 overflow-y-auto mb-6">
+              {userRewards.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-4 opacity-50">🤷‍♂️</div>
+                  <p className="text-gray-500">Brak historii nagród</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {userRewards.map((reward) => (
+                    <div 
+                      key={reward.id}
+                      className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4 transition-all duration-200 hover:shadow-md"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl">🍍</div>
+                        <div className="flex-1">
+                          <p className="text-gray-800 font-medium mb-1">{reward.reason}</p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(reward.given_at).toLocaleDateString('pl-PL', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={() => setShowUserHistory(false)}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-6 py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg transform hover:scale-105"
+            >
+              Zamknij
+            </button>
           </div>
         </div>
       )}
